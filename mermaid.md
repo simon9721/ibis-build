@@ -1,3 +1,4 @@
+```mermaid
 flowchart TD
   A([Start]) --> B{Model_type?}
 
@@ -45,3 +46,4 @@ flowchart TD
   J4 --> K
 
   K([Finish]) --> Z[Set test loads (Rref/Cref/Vref); run golden parser]
+```
