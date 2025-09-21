@@ -1,0 +1,71 @@
+[IBIS Ver] 7.2
+[File Name] mychip.ibs
+[File Rev] 1.0
+[Date] 2025-09-19
+[Source] HSPICE extraction
+[Notes] Auto-generated
+
+|************************************************************
+|                 COMPONENT: MyChip
+|************************************************************
+
+[Component] MyChip
+[Manufacturer] Acme Semi
+
+[Package]
+R_pkg 0.0 0.0 0.0
+L_pkg 0.0 0.0 0.0
+C_pkg 0.0 0.0 0.0
+| [End Package]
+
+[Pin] signal_name model_name R_pin L_pin C_pin
+1 IO1 LVCMOS33_IO 0 0 0
+2 IO2 LVCMOS33_IO 0 0 0
+
+| [End Component]
+
+
+
+[Model] LVCMOS33_IO
+Model_type I/O
+Polarity Non-Inverting
+Enable Active-High
+C_comp 2E-12 1.8E-12 2.3E-12
+
+[Voltage Range] 3.00V 3.30V 3.60V
+
+
+
+[Pullup]
+| V I(typ) I(min) I(max)
+-3.3 -0.01 -0.011 -0.009
+0 0 0 0
+6.6 -0.04 -0.044 -0.036
+
+[Pulldown]
+| V I(typ) I(min) I(max)
+-3.3 -0.04 -0.044 -0.036
+0 0 0 0
+6.6 0.02 0.018 0.022
+
+[POWER Clamp]
+| V I(typ) I(min) I(max)
+-3.3 -0.0012 -0.0013 -0.0011
+0 0 0 0
+6.6 0.0035 0.0032 0.0038
+
+[GND Clamp]
+| V I(typ) I(min) I(max)
+-3.3 0.0035 0.0032 0.0038
+0 0 0 0
+6.6 -0.0012 -0.0013 -0.0011
+
+[Ramp]
+dV/dt_r 0.4 0.35 0.45
+dV/dt_f 0.35 0.3 0.4
+
+
+
+| [End Model]
+
+[End]

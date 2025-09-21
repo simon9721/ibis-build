@@ -1,0 +1,3 @@
+dvdt_r: { typ: 4.0e8, min: 3.5e8, max: 4.5e8 }
+dvdt_f: { typ: 3.5e8, min: 3.0e8, max: 4.0e8 }
+

@@ -1,0 +1,101 @@
+[IBIS Ver] {{ meta.ibis_ver }}
+[File Name] {{ meta.file_name }}
+[File Rev] {{ meta.file_rev }}
+[Date] {{ meta.date }}
+[Source] {{ meta.source }}
+[Notes] {{ meta.notes }}
+
+|************************************************************
+|                 COMPONENT: {{ component.name }}
+|************************************************************
+
+[Component] {{ component.name }}
+[Manufacturer] {{ component.manufacturer }}
+
+[Package]
+{% if component.package_text %}
+{{ component.package_text }}
+{% else %}
+R_pkg 0.0 0.0 0.0
+L_pkg 0.0 0.0 0.0
+C_pkg 0.0 0.0 0.0
+{% endif %}
+| [End Package]
+
+[Pin] signal_name model_name R_pin L_pin C_pin
+{% for p in pins -%}
+{{ p.pin }} {{ p.signal }} {{ p.model }} {{ (p.r_pin if p.get('r_pin') else 0)|fmt_num }} {{ (p.l_pin if p.get('l_pin') else 0)|fmt_num }} {{ (p.c_pin if p.get('c_pin') else 0)|fmt_num }}
+{% endfor %}
+
+| [End Component]
+
+{# ========================================================== #}
+{# =============== MODEL DEFINITIONS (TOP LEVEL) ============ #}
+{# ========================================================== #}
+
+{% for m in models %}
+
+[Model] {{ m.name }}
+Model_type {{ m.type }}
+Polarity {{ m.polarity }}
+Enable {{ m.enable }}
+C_comp {{ m.c_comp.typ|fmt_num }} {{ m.c_comp.min|fmt_num }} {{ m.c_comp.max|fmt_num }}
+
+[Voltage Range] {{ meta.v_min|fmt_volt }} {{ meta.v_typ|fmt_volt }} {{ meta.v_max|fmt_volt }}
+
+
+
+[Pullup]
+| V I(typ) I(min) I(max)
+{% for r in m.pullup -%}
+{{ r.V|fmt_num }} {{ r.typ|fmt_num }} {{ r.min|fmt_num }} {{ r.max|fmt_num }}
+{% endfor %}
+
+[Pulldown]
+| V I(typ) I(min) I(max)
+{% for r in m.pulldown -%}
+{{ r.V|fmt_num }} {{ r.typ|fmt_num }} {{ r.min|fmt_num }} {{ r.max|fmt_num }}
+{% endfor %}
+
+[POWER Clamp]
+| V I(typ) I(min) I(max)
+{% for r in m.power_clamp -%}
+{{ r.V|fmt_num }} {{ r.typ|fmt_num }} {{ r.min|fmt_num }} {{ r.max|fmt_num }}
+{% endfor %}
+
+[GND Clamp]
+| V I(typ) I(min) I(max)
+{% for r in m.ground_clamp -%}
+{{ r.V|fmt_num }} {{ r.typ|fmt_num }} {{ r.min|fmt_num }} {{ r.max|fmt_num }}
+{% endfor %}
+
+[Ramp]
+dV/dt_r {{ m.ramp.dvdt_r.typ_v_per_ns|fmt_num }} {{ m.ramp.dvdt_r.min_v_per_ns|fmt_num }} {{ m.ramp.dvdt_r.max_v_per_ns|fmt_num }}
+dV/dt_f {{ m.ramp.dvdt_f.typ_v_per_ns|fmt_num }} {{ m.ramp.dvdt_f.min_v_per_ns|fmt_num }} {{ m.ramp.dvdt_f.max_v_per_ns|fmt_num }}
+
+{% for wf in m.rising %}
+[Rising Waveform]
+R_fixture = {{ wf.R|fmt_num }}
+V_fixture = {{ wf.V|fmt_num }}
+|
+| Time(s) V(typ) V(min) V(max)
+{% for p in wf.points -%}
+{{ p.t|fmt_num }} {{ p.typ|fmt_num }} {{ p.min|fmt_num }} {{ p.max|fmt_num }}
+{% endfor %}
+{% endfor %}
+
+{% for wf in m.falling %}
+[Falling Waveform]
+R_fixture = {{ wf.R|fmt_num }}
+V_fixture = {{ wf.V|fmt_num }}
+|
+| Time(s) V(typ) V(min) V(max)
+{% for p in wf.points -%}
+{{ p.t|fmt_num }} {{ p.typ|fmt_num }} {{ p.min|fmt_num }} {{ p.max|fmt_num }}
+{% endfor %}
+{% endfor %}
+
+| [End Model]
+{% endfor %}
+
+[End]

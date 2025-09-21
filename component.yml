@@ -1,0 +1,25 @@
+meta:
+  ibis_ver: "7.2"
+  file_name: "mychip.ibs"
+  file_rev: "1.0"
+  date: "2025-09-19"
+  source: "HSPICE extraction"
+  notes: "Auto-generated"
+  v_min: 3.0
+  v_typ: 3.3
+  v_max: 3.6
+
+component:
+  name: "MyChip"
+  manufacturer: "Acme Semi"
+  c_comp: { typ: 2.0e-12, min: 1.8e-12, max: 2.3e-12 }
+  use_external_package_text: true
+
+models:
+  - name: "LVCMOS33_IO"
+    type: "I/O"
+    polarity: "Non-Inverting"
+    enable: "Active-High"
+    vt_sets:
+      rising: []
+      falling: []
