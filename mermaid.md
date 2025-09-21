@@ -1,4 +1,3 @@
-```mermaid
 flowchart TD
   A[[Start]] --> B{[Model] → Model_type?}
 
@@ -61,4 +60,3 @@ flowchart TD
 
   %% --- END ---
   K --> Z[[Finish: Validate with Golden Parser; fix warnings/errors; iterate.]]
-```
