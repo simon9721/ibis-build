@@ -1,0 +1,22 @@
+{
+  "phase": "iv",
+  "corner": "min",
+  "corner_source": "supply_rank",
+  "supply_used": 3.135,
+  "columns": [
+    "time",
+    "v_sweep",
+    "i_pulldown",
+    "i_gndclamp",
+    "i_pullup",
+    "i_powerclamp"
+  ],
+  "rows": 1984,
+  "metadata": {
+    "vpower": 3.135,
+    "pulldown_ref": 0.0,
+    "gnd_cl_ref": 0.0,
+    "pullup_ref": 3.135,
+    "power_cl_ref": 3.135
+  }
+}

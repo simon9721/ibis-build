@@ -1,0 +1,17 @@
+{
+  "phase": "vt",
+  "corner": "typ",
+  "corner_source": "supply_rank",
+  "supply_used": 3.3,
+  "columns": [
+    "time",
+    "pulldown_on",
+    "pulldown_off",
+    "pullup_on",
+    "pullup_off"
+  ],
+  "rows": 601,
+  "metadata": {
+    "vpower": 3.3
+  }
+}
