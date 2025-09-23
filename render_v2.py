@@ -314,11 +314,15 @@ def read_component(root: Path):
     vt_R = float(vt_defaults.get("R_fixture", 50.0))
     vt_V = float(vt_defaults.get("V_fixture", cfg["meta"]["v_typ"]))
 
+
     models_ctx = []
     for m in cfg["models"]:
         mp = root / "models" / m["name"]
 
-        # ---- Path 1: already-merged CSVs present ----
+        # Per-model on/off switch for emitting V-T waveform tables (default: ON)
+        include_vt = bool(m.get("include_vt", True))
+
+        # ---- Path 1: already-merged CSVs present (pullup.csv, pulldown.csv, ...) ----
         merged_present = (mp / "pullup.csv").exists()
         if merged_present:
             pu_ref, pu = read_iv(mp / "pullup.csv")
@@ -326,16 +330,16 @@ def read_component(root: Path):
             pc_ref, pc = read_iv(mp / "power_clamp.csv")
             gc_ref, gc = read_iv(mp / "ground_clamp.csv")
 
-            # VT waveforms listed explicitly in component.yml
+            # V-T waveforms listed explicitly (only load if include_vt)
             rising, falling = [], []
-            for fn in m.get("vt_sets", {}).get("rising", []):
-                rising.append(read_vt(mp / fn))
-            for fn in m.get("vt_sets", {}).get("falling", []):
-                falling.append(read_vt(mp / fn))
+            if include_vt:
+                for fn in m.get("vt_sets", {}).get("rising", []):
+                    rising.append(read_vt(mp / fn))
+                for fn in m.get("vt_sets", {}).get("falling", []):
+                    falling.append(read_vt(mp / fn))
 
-            # Compute Ramp from the *first* available waveform pair if present,
-            # otherwise fall back to ramp.yml if provided, else zeros.
-            if rising and falling:
+            # Ramp: from first waveform pair if present; else ramp.yml; else zeros
+            if include_vt and rising and falling:
                 ramp = compute_ramp_from_points(
                     rising[0]["points"], falling[0]["points"], rising[0]["V"], rising[0]["R"]
                 )
@@ -371,15 +375,48 @@ def read_component(root: Path):
                     }
 
         else:
-            # ---- Path 2: NEW triplet auto-merge (iv_*.csv + vt_*.csv) ----
+            # ---- Path 2: triplet auto-merge (iv_*.csv + vt_*.csv) ----
             iv_all = read_iv_triplet(mp)
             pu_ref, pu = iv_all["pullup"]
             pd_ref, pd = iv_all["pulldown"]
             pc_ref, pc = iv_all["power_clamp"]
             gc_ref, gc = iv_all["ground_clamp"]
 
-            # Auto-derive VT waveforms and *computed* ramp
-            rising, falling, ramp = read_vt_triplet(mp, v_fixture=vt_V, r_fixture=vt_R)
+            if include_vt:
+                # Auto-derive V-T waveforms and computed ramp
+                rising, falling, ramp = read_vt_triplet(mp, v_fixture=vt_V, r_fixture=vt_R)
+            else:
+                # Suppress V-T; keep only Ramp (from ramp.yml if available)
+                rising, falling = [], []
+                try:
+                    ramp_raw = read_ramp_yaml(mp / "ramp.yml")
+                    ramp = {
+                        "r_load_ohm": vt_R,
+                        "dvdt_r": {
+                            "typ_v_per_ns": to_v_per_ns(ramp_raw["dvdt_r"]["typ"]),
+                            "min_v_per_ns": to_v_per_ns(ramp_raw["dvdt_r"]["min"]),
+                            "max_v_per_ns": to_v_per_ns(ramp_raw["dvdt_r"]["max"]),
+                            "typ_str": fmt_mv_ns_pair(0.6*vt_V, 0.6*vt_V / float(ramp_raw["dvdt_r"]["typ"])),
+                            "min_str": fmt_mv_ns_pair(0.6*vt_V, 0.6*vt_V / float(ramp_raw["dvdt_r"]["min"])),
+                            "max_str": fmt_mv_ns_pair(0.6*vt_V, 0.6*vt_V / float(ramp_raw["dvdt_r"]["max"])),
+                        },
+                        "dvdt_f": {
+                            "typ_v_per_ns": to_v_per_ns(ramp_raw["dvdt_f"]["typ"]),
+                            "min_v_per_ns": to_v_per_ns(ramp_raw["dvdt_f"]["min"]),
+                            "max_v_per_ns": to_v_per_ns(ramp_raw["dvdt_f"]["max"]),
+                            "typ_str": fmt_mv_ns_pair(0.6*vt_V, 0.6*vt_V / float(ramp_raw["dvdt_f"]["typ"])),
+                            "min_str": fmt_mv_ns_pair(0.6*vt_V, 0.6*vt_V / float(ramp_raw["dvdt_f"]["min"])),
+                            "max_str": fmt_mv_ns_pair(0.6*vt_V, 0.6*vt_V / float(ramp_raw["dvdt_f"]["max"])),
+                        },
+                    }
+                except Exception:
+                    ramp = {
+                        "r_load_ohm": vt_R,
+                        "dvdt_r": {"typ_v_per_ns": 0.0, "min_v_per_ns": 0.0, "max_v_per_ns": 0.0,
+                                   "typ_str": "0.000mV/0.000ns", "min_str": "0.000mV/0.000ns", "max_str": "0.000mV/0.000ns"},
+                        "dvdt_f": {"typ_v_per_ns": 0.0, "min_v_per_ns": 0.0, "max_v_per_ns": 0.0,
+                                   "typ_str": "0.000mV/0.000ns", "min_str": "0.000mV/0.000ns", "max_str": "0.000mV/0.000ns"},
+                    }
 
         # C_comp: inherit component default unless overridden per model
         c_comp = m.get("c_comp", cfg["component"]["c_comp"])
@@ -395,6 +432,7 @@ def read_component(root: Path):
             "ramp": ramp, "rising": rising, "falling": falling,
             "_refs": {"pu": pu_ref, "pd": pd_ref, "pc": pc_ref, "gc": gc_ref},
         })
+
 
     # External package text (only R_pkg / L_pkg / C_pkg lines)
     package_text = ""

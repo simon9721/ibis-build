@@ -1,21 +1,2 @@
 # pin,signal_name,model_name
-1,IO1,LVCMOS33_IO
-2,IO2,LVCMOS33_IO
-
-|
-[PIN]   signal_name     model_name      R_pin   L_pin   C_pin
-|
-1       Vcc             Power
-2       GND             GND
-3       Input3_3        in33v
-4       Input5_0        in50v
-5       Data_IO3_3      io33v
-6       Input5_out3     io33v5
-7       Data_IO5_0      io50v
-8       Output5_5       out50v
-9       Output3_3       out33v
-10      Open_drain3_3   od33v
-11      Open_source3_3  os33v
-12      Repeat_last     od33v
-13      Repeat_IO5_0    io50v
-|
+1,IO1, io33v

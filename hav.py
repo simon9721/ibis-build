@@ -1,142 +1,182 @@
 import re, csv, json, sys
 from pathlib import Path
 
+# Phase banners (can repeat; only used for phase transitions)
 VT_BANNER = re.compile(r'v-?t\s+curve\s+simulations', re.I)
 IV_BANNER = re.compile(r'i-?v\s+curve\s+simulations', re.I)
-NUM_ROW   = re.compile(r'^\s*[-+0-9Ee\.]+(?:\s+[-+0-9Ee\.]+){1,}\s*$')
-VPOWER_RE = re.compile(r'vpower\s*=\s*([+-]?[0-9.]+[Ee]?[+-]?\d*)', re.I)
-REF_RE    = re.compile(r'(\w+_ref)\s*=\s*([+-]?[0-9.]+[Ee]?[+-]?\d*)', re.I)
-KV_LINE   = re.compile(r'^\s*([A-Za-z0-9_]+)\s*=\s*([^\s].*?)\s*$')
 
-def parse_blocks(lines):
-    # Find all table starts
-    x_idx = [i for i,l in enumerate(lines) if l.strip() == 'x']
-    blocks = []
-    for idx in x_idx:
-        # Backtrack phase from nearest banner above this table
-        phase = None
-        for k in range(idx, -1, -1):
-            if VT_BANNER.search(lines[k]): phase = 'vt'; break
-            if IV_BANNER.search(lines[k]): phase = 'iv'; break
+# Optional: capture .ALTER cues for meta (not used to label)
+ALTER_LINE = re.compile(r'^\s*\.alter\b', re.I)
+CUE_MIN = re.compile(r'\b(min(?:imum)?|slow|ss)\b', re.I)
+CUE_MAX = re.compile(r'\b(max(?:imum)?|fast|ff)\b', re.I)
 
-        # Header (next nonblank)
-        j = idx + 1
-        while j < len(lines) and not lines[j].strip():
+# Data rows (at least 2 numeric columns)
+NUM_ROW = re.compile(r'^\s*[-+0-9Ee\.]+(?:\s+[-+0-9Ee\.]+){1,}\s*$')
+
+def cue_from_text(s: str):
+    if CUE_MIN.search(s): return 'min'
+    if CUE_MAX.search(s): return 'max'
+    return None
+
+def parse_lis(lines):
+    """
+    For each phase independently:
+      1st table -> min
+      2nd table -> max
+      3rd+ table(s) -> typ (keeps the most recent for that corner)
+    """
+    current_phase = None         # 'vt' | 'iv'
+    seen_tables = {'vt': 0, 'iv': 0}
+
+    # Only keep the latest table for each (phase, corner)
+    latest = {}  # (phase, corner) -> {'header','rows','meta'}
+
+    # Capture any .ALTER cue we see before the next table (for meta only)
+    pending_cue = {'vt': None, 'iv': None}
+    pending_cue_line = {'vt': None, 'iv': None}
+
+    i, n = 0, len(lines)
+    while i < n:
+        line = lines[i]
+
+        # Detect phase transitions (only when it actually changes)
+        if VT_BANNER.search(line):
+            if current_phase != 'vt':
+                current_phase = 'vt'
+        elif IV_BANNER.search(line):
+            if current_phase != 'iv':
+                current_phase = 'iv'
+
+        # Track upcoming .ALTER cue (meta only)
+        if ALTER_LINE.search(line) and current_phase in ('vt','iv'):
+            cue = None
+            parts = line.split('$', 1)
+            if len(parts) == 2:
+                cue = cue_from_text(parts[1])
+            if cue is None:
+                # look ahead a few comment-only lines for the cue
+                k, hops = i + 1, 6
+                while k < n and hops > 0:
+                    s = lines[k].strip()
+                    if s.startswith('$'):
+                        cue = cue_from_text(s)
+                        if cue: break
+                    elif s and not s.startswith('$'):
+                        break
+                    k += 1
+                    hops -= 1
+            pending_cue[current_phase] = cue
+            pending_cue_line[current_phase] = i + 1
+
+        # Table start
+        if line.strip() == 'x':
+            if current_phase not in ('vt','iv'):
+                i += 1
+                continue
+
+            # Header: next nonblank
+            j = i + 1
+            while j < n and not lines[j].strip():
+                j += 1
+            if j >= n: break
+            header = lines[j].strip().split()
             j += 1
-        if j >= len(lines): continue
-        header = lines[j].strip().split()
-        j += 1
 
-        # Rows until 'y'
-        rows = []
-        while j < len(lines):
-            s = lines[j].strip()
-            if s == 'y': break
-            if s and NUM_ROW.match(s):
-                rows.append(s.split())
-            j += 1
+            # Rows until 'y'
+            rows = []
+            while j < n:
+                s = lines[j].strip()
+                if s == 'y': break
+                if s and NUM_ROW.match(s):
+                    rows.append(s.split())
+                j += 1
 
-        # Gather metadata from ~80 lines above the table
-        meta = {}
-        scan_from = max(0, idx - 80)
-        for k in range(scan_from, idx):
-            m = VPOWER_RE.search(lines[k])
-            if m:
-                try: meta['vpower'] = float(m.group(1))
-                except: pass
-            for m2 in REF_RE.finditer(lines[k]):
-                key, val = m2.group(1), m2.group(2)
-                try: meta[key] = float(val)
-                except: pass
-            m3 = KV_LINE.match(lines[k])
-            if m3 and m3.group(1).lower().endswith('_ref'):
-                try: meta[m3.group(1)] = float(m3.group(2))
-                except: pass
+            # Increment per-phase table counter and map by order
+            seen_tables[current_phase] += 1
+            idx = seen_tables[current_phase]
+            if idx == 1:
+                corner = 'min'
+            elif idx == 2:
+                corner = 'max'
+            else:
+                corner = 'typ'
 
-        blocks.append({
-            'phase': phase or 'unknown',
-            'header': header,
-            'rows': rows,
-            'meta': meta,
-            'xindex': idx,
-        })
-    return blocks
+            # Meta (diagnostics)
+            meta = {
+                'label_policy': 'by_sequence_min_max_typ',
+                'phase_table_index': idx,
+                'pre_table_alter_cue': pending_cue[current_phase],
+                'pre_table_alter_cue_line': pending_cue_line[current_phase],
+            }
+            # consume the pending cue after recording
+            pending_cue[current_phase] = None
+            pending_cue_line[current_phase] = None
 
-def assign_corners(blocks):
-    # Determine supply per block, per phase
-    per_phase_vals = {'vt': set(), 'iv': set()}
-    for b in blocks:
-        ph = b['phase']
-        if ph not in ('vt', 'iv'): continue
-        if ph == 'vt':
-            sup = b['meta'].get('vpower')
-        else:
-            sup = (b['meta'].get('pullup_ref') or
-                   b['meta'].get('power_cl_ref') or
-                   b['meta'].get('vpower'))
-        b['supply'] = sup
-        if sup is not None:
-            per_phase_vals[ph].add(sup)
+            latest[(current_phase, corner)] = {
+                'header': header,
+                'rows': rows,
+                'meta': meta
+            }
 
-    # Rank supplies → corner map
-    corner_map = {}
-    for ph in ('vt', 'iv'):
-        vals = sorted(per_phase_vals[ph])
-        if len(vals) == 1:
-            corner_map[ph] = {vals[0]: 'typ'}
-        elif len(vals) == 2:
-            corner_map[ph] = {vals[0]: 'min', vals[1]: 'max'}
-        elif len(vals) >= 3:
-            # use smallest=min, middle=typ, largest=max
-            corner_map[ph] = {vals[0]: 'min', vals[1]: 'typ', vals[-1]: 'max'}
+            i = j  # jump to 'y'
+        i += 1
 
-    # Apply labels (fallback to typ if unknown)
-    for b in blocks:
-        ph = b['phase']
-        sup = b.get('supply')
-        b['corner'] = (corner_map.get(ph, {}).get(sup)) or 'typ'
-        b['corner_source'] = 'supply_rank' if sup is not None else 'fallback_typ'
+    return latest
 
-def write_outputs(blocks, outdir):
-    outdir = Path(outdir)
-    outdir.mkdir(parents=True, exist_ok=True)
-    for b in blocks:
-        phase, corner = b['phase'], b['corner']
-        header, rows, meta = b['header'], b['rows'], b['meta']
-        if phase not in ('vt','iv'): continue
-        stem = f"{phase}_{corner}"
-        # CSV
-        with (outdir / f"{stem}.csv").open('w', newline='') as f:
+def write_outputs(latest, outdir):
+    out = Path(outdir)
+    out.mkdir(parents=True, exist_ok=True)
+
+    # exactly six outputs
+    targets = [
+        ('vt','min'), ('vt','max'), ('vt','typ'),
+        ('iv','min'), ('iv','max'), ('iv','typ'),
+    ]
+    for phase, corner in targets:
+        csv_path = out / f"{phase}_{corner}.csv"
+        meta_path = out / f"{phase}_{corner}.meta.json"
+        block = latest.get((phase, corner))
+        if not block:
+            # stub to keep the set complete if something is missing in the .lis
+            with csv_path.open('w', newline='') as f:
+                csv.writer(f).writerow(['NO_DATA_FOUND'])
+            meta = {
+                'phase': phase, 'corner': corner,
+                'columns': ['NO_DATA_FOUND'],
+                'rows': 0,
+                'metadata': {'label_policy': 'by_sequence_min_max_typ', 'missing': True}
+            }
+            meta_path.write_text(json.dumps(meta, indent=2))
+            print(f"Wrote {csv_path}  (0 rows) [missing]")
+            continue
+
+        header, rows, meta_info = block['header'], block['rows'], block['meta']
+        with csv_path.open('w', newline='') as f:
             w = csv.writer(f)
             w.writerow(header)
             for r in rows:
                 w.writerow(r)
-        # META
-        meta_out = {
+
+        meta_blob = {
             'phase': phase,
             'corner': corner,
-            'corner_source': b.get('corner_source'),
-            'supply_used': b.get('supply'),
             'columns': header,
             'rows': len(rows),
-            'metadata': meta
+            'metadata': meta_info
         }
-        (outdir / f"{stem}.meta.json").write_text(json.dumps(meta_out, indent=2))
+        meta_path.write_text(json.dumps(meta_blob, indent=2))
+        print(f"Wrote {csv_path}  ({len(rows)} rows)")
 
 def main():
     if len(sys.argv) < 2:
         print("Usage: python lis2csv.py <file.lis> [outdir]")
         sys.exit(1)
     lis_path = Path(sys.argv[1])
-    outdir   = sys.argv[2] if len(sys.argv) >= 3 else "lis_out"
+    outdir = sys.argv[2] if len(sys.argv) >= 3 else "lis_out"
     lines = lis_path.read_text(errors='ignore').splitlines()
-    blocks = parse_blocks(lines)
-    if not blocks:
-        print("No tables found (looked for 'x'...'y').")
-        sys.exit(2)
-    assign_corners(blocks)
-    write_outputs(blocks, outdir)
-    print(f"Done. Wrote CSVs + meta to {outdir}")
+    latest = parse_lis(lines)
+    write_outputs(latest, outdir)
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
+

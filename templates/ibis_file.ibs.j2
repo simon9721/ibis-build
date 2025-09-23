@@ -41,7 +41,7 @@ Polarity {{ m.polarity }}
 Enable {{ m.enable }}
 C_comp {{ m.c_comp.typ|fmt_num }} {{ m.c_comp.min|fmt_num }} {{ m.c_comp.max|fmt_num }}
 
-[Voltage Range] {{ meta.v_min|fmt_volt }} {{ meta.v_typ|fmt_volt }} {{ meta.v_max|fmt_volt }}
+[Voltage Range] {{ meta.v_typ|fmt_volt }}  {{ meta.v_min|fmt_volt }}  {{ meta.v_max|fmt_volt }}
 
 
 
@@ -70,8 +70,12 @@ C_comp {{ m.c_comp.typ|fmt_num }} {{ m.c_comp.min|fmt_num }} {{ m.c_comp.max|fmt
 {% endfor %}
 
 [Ramp]
-dV/dt_r {{ m.ramp.dvdt_r.typ_v_per_ns|fmt_num }} {{ m.ramp.dvdt_r.min_v_per_ns|fmt_num }} {{ m.ramp.dvdt_r.max_v_per_ns|fmt_num }}
-dV/dt_f {{ m.ramp.dvdt_f.typ_v_per_ns|fmt_num }} {{ m.ramp.dvdt_f.min_v_per_ns|fmt_num }} {{ m.ramp.dvdt_f.max_v_per_ns|fmt_num }}
+R_load = {{ m.ramp.r_load_ohm|fmt_ohm }}
+|
+|                   typ                 min                 max
+|
+dV/dt_r     {{ m.ramp.dvdt_r.typ_str }}   {{ m.ramp.dvdt_r.min_str }}   {{ m.ramp.dvdt_r.max_str }}
+dV/dt_f     {{ m.ramp.dvdt_f.typ_str }}   {{ m.ramp.dvdt_f.min_str }}   {{ m.ramp.dvdt_f.max_str }}
 
 {% for wf in m.rising %}
 [Rising Waveform]

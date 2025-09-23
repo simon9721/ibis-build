@@ -1,8 +1,6 @@
 {
   "phase": "iv",
   "corner": "max",
-  "corner_source": "supply_rank",
-  "supply_used": 3.465,
   "columns": [
     "time",
     "v_sweep",
@@ -13,10 +11,9 @@
   ],
   "rows": 1984,
   "metadata": {
-    "vpower": 3.465,
-    "pulldown_ref": 0.0,
-    "gnd_cl_ref": 0.0,
-    "pullup_ref": 3.465,
-    "power_cl_ref": 3.465
+    "label_policy": "by_sequence_min_max_typ",
+    "phase_table_index": 2,
+    "pre_table_alter_cue": "max",
+    "pre_table_alter_cue_line": 4288
   }
 }

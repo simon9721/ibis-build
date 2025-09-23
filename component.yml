@@ -16,10 +16,11 @@ component:
   use_external_package_text: true
 
 models:
-  - name: "LVCMOS33_IO"
+  - name: "io33v"
     type: "I/O"
     polarity: "Non-Inverting"
     enable: "Active-High"
+    include_vt: true
     vt_sets:
       rising: []
       falling: []

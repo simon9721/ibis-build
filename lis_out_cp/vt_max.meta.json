@@ -1,8 +1,6 @@
 {
   "phase": "vt",
   "corner": "max",
-  "corner_source": "supply_rank",
-  "supply_used": 3.465,
   "columns": [
     "time",
     "pulldown_on",
@@ -12,6 +10,9 @@
   ],
   "rows": 601,
   "metadata": {
-    "vpower": 3.465
+    "label_policy": "by_sequence_min_max_typ",
+    "phase_table_index": 2,
+    "pre_table_alter_cue": "max",
+    "pre_table_alter_cue_line": 753
   }
 }

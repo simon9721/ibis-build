@@ -1,0 +1,8 @@
+{
+  "vt_temp_info": null,
+  "vt_temp_warning": "Temperature missing for one or more corners; kept file order typ,min,max.",
+  "vt_voltage_warning": "Pulldown_on end-voltage order failed: {'min': 2.21027046, 'typ': 2.12309829, 'max': 1.9401588} (expected Vmin<Vtyp<Vmax).",
+  "iv_temp_info": null,
+  "iv_temp_warning": "Temperature missing for one or more corners; kept file order typ,min,max.",
+  "source": "io33v.lis"
+}
