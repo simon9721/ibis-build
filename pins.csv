@@ -1,2 +1,4 @@
 # pin,signal_name,model_name
 1,IO1, io33v
+2,vcc, POWER
+3,GND, GND

@@ -1,0 +1,14 @@
+key,value
+vpower,3.465
+vfixture_pd_on,3.465
+vfixture_pd_off,3.465
+vfixture_pu_on,0.0
+vfixture_pu_off,0.0
+rfixture_pd_on,50.0
+rfixture_pd_off,50.0
+rfixture_pu_on,50.0
+rfixture_pu_off,50.0
+cfixture_pd_on,0.0
+cfixture_pd_off,0.0
+cfixture_pu_on,0.0
+cfixture_pu_off,0.0

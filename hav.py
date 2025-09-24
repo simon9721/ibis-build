@@ -172,7 +172,7 @@ def main():
         print("Usage: python lis2csv.py <file.lis> [outdir]")
         sys.exit(1)
     lis_path = Path(sys.argv[1])
-    outdir = sys.argv[2] if len(sys.argv) >= 3 else "lis_out"
+    outdir = sys.argv[2] if len(sys.argv) >= 3 else "io33v_bk"
     lines = lis_path.read_text(errors='ignore').splitlines()
     latest = parse_lis(lines)
     write_outputs(latest, outdir)

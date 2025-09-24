@@ -353,50 +353,69 @@ def read_component(root: Path):
             pc_ref, pc = read_iv(mp / "power_clamp.csv")
             gc_ref, gc = read_iv(mp / "ground_clamp.csv")
 
-            # V-T waveforms listed explicitly (only load if include_vt)
-            rising, falling = [], []
-            if include_vt:
-                for fn in m.get("vt_sets", {}).get("rising", []):
-                    rising.append(read_vt(mp / fn))
-                for fn in m.get("vt_sets", {}).get("falling", []):
-                    falling.append(read_vt(mp / fn))
+            # Try to load explicit vt_sets (for ramp computation) regardless of include_vt
+            rising_sets, falling_sets = [], []
+            vt_sets = (m.get("vt_sets") or {})
+            for fn in vt_sets.get("rising", []):
+                rising_sets.append(read_vt(mp / fn))
+            for fn in vt_sets.get("falling", []):
+                falling_sets.append(read_vt(mp / fn))
 
-            # Ramp: from first waveform pair if present; else ramp.yml; else zeros
-            if include_vt and rising and falling:
+            ramp = None
+            rising, falling = [], []
+
+            if rising_sets and falling_sets:
+                # Compute ramp from the first provided pair
                 ramp = compute_ramp_from_points(
-                    rising[0]["points"], falling[0]["points"], rising[0]["V"], rising[0]["R"]
+                    rising_sets[0]["points"], falling_sets[0]["points"],
+                    rising_sets[0]["V"], rising_sets[0]["R"]
                 )
+                # Only expose waveform tables when include_vt is True
+                if include_vt:
+                    rising, falling = rising_sets, falling_sets
             else:
-                try:
-                    ramp_raw = read_ramp_yaml(mp / "ramp.yml")
-                    vt_V = vref_triplet[0]
-                    ramp = {
-                        "r_load_ohm": vt_R,
-                        "dvdt_r": {
-                            "typ_v_per_ns": to_v_per_ns(ramp_raw["dvdt_r"]["typ"]),
-                            "min_v_per_ns": to_v_per_ns(ramp_raw["dvdt_r"]["min"]),
-                            "max_v_per_ns": to_v_per_ns(ramp_raw["dvdt_r"]["max"]),
-                            "typ_str": fmt_mv_ns_pair(0.6*vt_V, 0.6*vt_V / float(ramp_raw["dvdt_r"]["typ"])),
-                            "min_str": fmt_mv_ns_pair(0.6*vt_V, 0.6*vt_V / float(ramp_raw["dvdt_r"]["min"])),
-                            "max_str": fmt_mv_ns_pair(0.6*vt_V, 0.6*vt_V / float(ramp_raw["dvdt_r"]["max"])),
-                        },
-                        "dvdt_f": {
-                            "typ_v_per_ns": to_v_per_ns(ramp_raw["dvdt_f"]["typ"]),
-                            "min_v_per_ns": to_v_per_ns(ramp_raw["dvdt_f"]["min"]),
-                            "max_v_per_ns": to_v_per_ns(ramp_raw["dvdt_f"]["max"]),
-                            "typ_str": fmt_mv_ns_pair(0.6*vt_V, 0.6*vt_V / float(ramp_raw["dvdt_f"]["typ"])),
-                            "min_str": fmt_mv_ns_pair(0.6*vt_V, 0.6*vt_V / float(ramp_raw["dvdt_f"]["min"])),
-                            "max_str": fmt_mv_ns_pair(0.6*vt_V, 0.6*vt_V / float(ramp_raw["dvdt_f"]["max"])),
-                        },
-                    }
-                except Exception:
-                    ramp = {
-                        "r_load_ohm": vt_R,
-                        "dvdt_r": {"typ_v_per_ns": 0.0, "min_v_per_ns": 0.0, "max_v_per_ns": 0.0,
-                                   "typ_str": "0.000mV/0.000ns", "min_str": "0.000mV/0.000ns", "max_str": "0.000mV/0.000ns"},
-                        "dvdt_f": {"typ_v_per_ns": 0.0, "min_v_per_ns": 0.0, "max_v_per_ns": 0.0,
-                                   "typ_str": "0.000mV/0.000ns", "min_str": "0.000mV/0.000ns", "max_str": "0.000mV/0.000ns"},
-                    }
+                # No explicit vt_sets; try vt_triplet CSVs to compute ramp
+                vt_triplet_present = all((mp / f"vt_{c}.csv").exists() for c in ("typ", "min", "max"))
+                if vt_triplet_present:
+                    rising_tmp, falling_tmp, ramp = read_vt_triplet(
+                        mp, vref_triplet=vref_triplet, r_fixture=vt_R
+                    )
+                    if include_vt:
+                        rising, falling = rising_tmp, falling_tmp
+                    else:
+                        rising, falling = [], []  # keep ramp, drop waveforms
+                else:
+                    # Fall back to ramp.yml (or zeros) if no V-T data present
+                    try:
+                        ramp_raw = read_ramp_yaml(mp / "ramp.yml")
+                        vt_V = vref_triplet[0]
+                        ramp = {
+                            "r_load_ohm": vt_R,
+                            "dvdt_r": {
+                                "typ_v_per_ns": to_v_per_ns(ramp_raw["dvdt_r"]["typ"]),
+                                "min_v_per_ns": to_v_per_ns(ramp_raw["dvdt_r"]["min"]),
+                                "max_v_per_ns": to_v_per_ns(ramp_raw["dvdt_r"]["max"]),
+                                "typ_str": fmt_mv_ns_pair(0.6*vt_V, 0.6*vt_V / float(ramp_raw["dvdt_r"]["typ"])),
+                                "min_str": fmt_mv_ns_pair(0.6*vt_V, 0.6*vt_V / float(ramp_raw["dvdt_r"]["min"])),
+                                "max_str": fmt_mv_ns_pair(0.6*vt_V, 0.6*vt_V / float(ramp_raw["dvdt_r"]["max"])),
+                            },
+                            "dvdt_f": {
+                                "typ_v_per_ns": to_v_per_ns(ramp_raw["dvdt_f"]["typ"]),
+                                "min_v_per_ns": to_v_per_ns(ramp_raw["dvdt_f"]["min"]),
+                                "max_v_per_ns": to_v_per_ns(ramp_raw["dvdt_f"]["max"]),
+                                "typ_str": fmt_mv_ns_pair(0.6*vt_V, 0.6*vt_V / float(ramp_raw["dvdt_f"]["typ"])),
+                                "min_str": fmt_mv_ns_pair(0.6*vt_V, 0.6*vt_V / float(ramp_raw["dvdt_f"]["min"])),
+                                "max_str": fmt_mv_ns_pair(0.6*vt_V, 0.6*vt_V / float(ramp_raw["dvdt_f"]["max"])),
+                            },
+                        }
+                    except Exception:
+                        ramp = {
+                            "r_load_ohm": vt_R,
+                            "dvdt_r": {"typ_v_per_ns": 0.0, "min_v_per_ns": 0.0, "max_v_per_ns": 0.0,
+                                       "typ_str": "0.000mV/0.000ns", "min_str": "0.000mV/0.000ns", "max_str": "0.000mV/0.000ns"},
+                            "dvdt_f": {"typ_v_per_ns": 0.0, "min_v_per_ns": 0.0, "max_v_per_ns": 0.0,
+                                       "typ_str": "0.000mV/0.000ns", "min_str": "0.000mV/0.000ns", "max_str": "0.000mV/0.000ns"},
+                        }
 
         else:
             # ---- Path 2: triplet auto-merge (iv_*.csv + vt_*.csv) ----
@@ -406,13 +425,18 @@ def read_component(root: Path):
             pc_ref, pc = iv_all["power_clamp"]
             gc_ref, gc = iv_all["ground_clamp"]
 
-            if include_vt:
-                # Auto-derive V-T waveforms and computed ramp according to your mapping
-                rising, falling, ramp = read_vt_triplet(
+            # Always compute ramp from vt_triplet; only emit tables when include_vt
+            vt_triplet_present = all((mp / f"vt_{c}.csv").exists() for c in ("typ", "min", "max"))
+            if vt_triplet_present:
+                rising_tmp, falling_tmp, ramp = read_vt_triplet(
                     mp, vref_triplet=vref_triplet, r_fixture=vt_R
                 )
+                if include_vt:
+                    rising, falling = rising_tmp, falling_tmp
+                else:
+                    rising, falling = [], []  # keep ramp, drop waveforms
             else:
-                # Suppress V-T; keep only Ramp (from ramp.yml if available)
+                # No VT CSVs; fall back to ramp.yml (or zeros)
                 rising, falling = [], []
                 try:
                     ramp_raw = read_ramp_yaml(mp / "ramp.yml")
@@ -424,7 +448,6 @@ def read_component(root: Path):
                             "min_v_per_ns": to_v_per_ns(ramp_raw["dvdt_r"]["min"]),
                             "max_v_per_ns": to_v_per_ns(ramp_raw["dvdt_r"]["max"]),
                             "typ_str": fmt_mv_ns_pair(0.6*vt_V, 0.6*vt_V / float(ramp_raw["dvdt_r"]["typ"])),
-
                             "min_str": fmt_mv_ns_pair(0.6*vt_V, 0.6*vt_V / float(ramp_raw["dvdt_r"]["min"])),
                             "max_str": fmt_mv_ns_pair(0.6*vt_V, 0.6*vt_V / float(ramp_raw["dvdt_r"]["max"])),
                         },
@@ -475,6 +498,8 @@ def read_component(root: Path):
         "pins": pins,
         "models": models_ctx,
     }
+
+
 
 # ---------- validators ----------
 def validate(ctx):

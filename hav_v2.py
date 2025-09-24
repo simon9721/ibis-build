@@ -1,4 +1,4 @@
-import re, csv, json, sys
+import re, csv, json, sys, os
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
@@ -271,6 +271,12 @@ def main():
     if len(sys.argv) < 2:
         print("Usage: python hav.py <file.lis> [outdir]")
         sys.exit(1)
+
+    infile = Path(sys.argv[1])
+    outdir = Path(sys.argv[2])
+
+    # ✅ ensure output directory exists
+    outdir.mkdir(parents=True, exist_ok=True)
 
     lis = Path(sys.argv[1])
     outdir = Path(sys.argv[2]) if len(sys.argv) >= 3 else Path('lis_out')

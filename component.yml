@@ -5,9 +5,9 @@ meta:
   date: "2025-09-19"
   source: "HSPICE extraction"
   notes: "Auto-generated"
-  v_min: 3.0
+  v_min: 3.135
   v_typ: 3.3
-  v_max: 3.6
+  v_max: 3.465
 
 component:
   name: "MyChip"
@@ -20,7 +20,7 @@ models:
     type: "I/O"
     polarity: "Non-Inverting"
     enable: "Active-High"
-    include_vt: true
+    include_vt: false
     vt_sets:
       rising: []
       falling: []
